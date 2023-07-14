@@ -1,3 +1,4 @@
+mod commands;
 pub(super) mod plugin;
 mod state;
 mod tray_menu;
