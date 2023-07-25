@@ -829,6 +829,10 @@ impl NodeManagerWorker {
 
             // ==*== Shares and Invites ==*==
             (Get, ["v0", "invites"]) => self.list_shares_response(ctx, dec.decode()?).await?,
+            (Post, ["v0", "invites/service"]) => {
+                self.create_service_invite_response(ctx, dec.decode()?)
+                    .await?
+            }
 
             // ==*== Catch-all for Unimplemented APIs ==*==
             _ => {
