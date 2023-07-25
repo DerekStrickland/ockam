@@ -3,7 +3,19 @@ use serde::Serialize;
 
 use ockam_identity::IdentityIdentifier;
 
-use super::SentInvitation;
+use super::{RoleInShare, SentInvitation, ShareScope};
+
+#[derive(Clone, Debug, Decode, Encode, Serialize)]
+#[cbor(map)]
+#[rustfmt::skip]
+pub struct CreateInvite {
+    #[n(1)] pub expires_at: Option<String>,
+    #[n(2)] pub grant_role: RoleInShare,
+    #[n(3)] pub recipient_email: Option<String>,
+    #[n(4)] pub remaining_uses: Option<usize>,
+    #[n(5)] pub scope: ShareScope,
+    #[n(6)] pub target_id: String,
+}
 
 #[derive(Clone, Debug, Decode, Encode, Serialize)]
 #[cbor(map)]
@@ -37,6 +49,50 @@ mod node {
     const API_SERVICE: &str = "users";
 
     impl NodeManager {
+        // TODO: Should identity_name not be an Option for this use-case?
+        //       This is an authenticated-only request
+        pub async fn create_invite(
+            &self,
+            ctx: &Context,
+            req: CreateInvite,
+            route: &MultiAddr,
+            identity_name: Option<String>,
+        ) -> Result<SentInvitation> {
+            Response::parse_response_body(
+                self.create_invite_response(
+                    ctx,
+                    CloudRequestWrapper::new(req, route, identity_name),
+                )
+                .await?
+                .as_slice(),
+            )
+        }
+
+        pub(crate) async fn create_invite_response(
+            &self,
+            ctx: &Context,
+            req_wrapper: CloudRequestWrapper<CreateInvite>,
+        ) -> Result<Vec<u8>> {
+            let cloud_multiaddr = req_wrapper.multiaddr()?;
+            let req_body = req_wrapper.req;
+
+            let label = "create_invite";
+            trace!(%req_body.scope, target_id = %req_body.target_id, "creating invite");
+
+            let req_builder = Request::post("/v0/invites").body(req_body);
+
+            self.request_controller(
+                ctx,
+                label,
+                "create_invite",
+                &cloud_multiaddr,
+                API_SERVICE,
+                req_builder,
+                None,
+            )
+            .await
+        }
+
         // TODO: Should identity_name not be an Option for this use-case?
         //       This is an authenticated-only request
         pub async fn create_service_invite(
@@ -83,6 +139,28 @@ mod node {
     }
 
     impl NodeManagerWorker {
+        pub async fn create_invite(
+            &self,
+            ctx: &Context,
+            req: CreateInvite,
+            route: &MultiAddr,
+            identity_name: Option<String>,
+        ) -> Result<SentInvitation> {
+            let node_manager = self.inner().read().await;
+            node_manager
+                .create_invite(ctx, req, route, identity_name)
+                .await
+        }
+
+        pub(crate) async fn create_invite_response(
+            &self,
+            ctx: &Context,
+            req_wrapper: CloudRequestWrapper<CreateInvite>,
+        ) -> Result<Vec<u8>> {
+            let node_manager = self.inner().read().await;
+            node_manager.create_invite_response(ctx, req_wrapper).await
+        }
+
         pub async fn create_service_invite(
             &self,
             ctx: &Context,
@@ -91,7 +169,9 @@ mod node {
             identity_name: Option<String>,
         ) -> Result<SentInvitation> {
             let node_manager = self.inner().read().await;
-            node_manager.create_service_invite(ctx, req, route, identity_name).await
+            node_manager
+                .create_service_invite(ctx, req, route, identity_name)
+                .await
         }
 
         pub(crate) async fn create_service_invite_response(
