@@ -827,6 +827,9 @@ impl NodeManagerWorker {
             // ==*== Messages ==*==
             (Post, ["v0", "message"]) => self.send_message(ctx, req, dec).await?,
 
+            // ==*== Shares and Invites ==*==
+            (Get, ["v0", "invites"]) => self.list_shares_response(ctx, dec.decode()?).await?,
+
             // ==*== Catch-all for Unimplemented APIs ==*==
             _ => {
                 warn!(%method, %path, "Called invalid endpoint");
