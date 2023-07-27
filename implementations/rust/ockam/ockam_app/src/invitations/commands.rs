@@ -3,7 +3,7 @@ use std::sync::Arc;
 use tauri::{async_runtime::RwLock, AppHandle, Manager, Runtime, State};
 use tracing::{debug, info};
 
-use ockam_api::cloud::share::{InviteListKind, ListInvites};
+use ockam_api::cloud::share::{AcceptInvitation, InviteListKind, ListInvites};
 use ockam_command::util::api::CloudOpts;
 
 use crate::app::AppState;
@@ -13,6 +13,30 @@ use super::state::InviteState;
 type SyncState = Arc<RwLock<InviteState>>;
 
 // At time of writing, tauri::command requires pub not pub(crate)
+
+#[tauri::command]
+pub async fn accept_invite<R: Runtime>(
+    id: String,
+    app: AppHandle<R>,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    info!(?id, "accepting invite");
+    let node_manager_worker = state.node_manager_worker().await;
+    let res = node_manager_worker
+        .accept_invite(
+            &state.context(),
+            AcceptInvitation { id },
+            &CloudOpts::route(),
+            None,
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+    debug!(?res);
+    // TODO: Emit UI/window event to refresh & redraw
+    app.trigger_global(crate::app::events::SYSTEM_TRAY_ON_UPDATE, None);
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn list_invites(state: State<'_, SyncState>) -> tauri::Result<InviteState> {
     Ok(state.read().await.clone())
