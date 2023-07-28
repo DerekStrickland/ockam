@@ -15,6 +15,7 @@ use ockam::{Address, AsyncTryClone, TcpListenerOptions};
 use ockam::{Context, TcpTransport};
 use ockam_api::cli_state::traits::{StateDirTrait, StateItemTrait};
 use ockam_api::config::lookup::ProjectLookup;
+use ockam_api::identity::EnrollmentTicket;
 use ockam_api::nodes::authority_node;
 use ockam_api::nodes::models::transport::CreateTransportJson;
 use ockam_api::nodes::service::NodeManagerTrustOptions;
@@ -32,10 +33,14 @@ use ockam_core::api::{RequestBuilder, Response, Status};
 use ockam_core::{route, LOCAL};
 
 use crate::node::util::{add_project_info_to_node_state, init_node_state, spawn_node};
+use crate::project::enroll::{parse_enroll_ticket, project_enroll};
+use crate::project::EnrollCommand;
 use crate::secure_channel::listener::create as secure_channel_listener;
 use crate::service::config::Config;
 use crate::terminal::OckamColor;
-use crate::util::api::{parse_trust_context, TrustContextConfigBuilder, TrustContextOpts};
+use crate::util::api::{
+    parse_trust_context, CloudOpts, TrustContextConfigBuilder, TrustContextOpts,
+};
 use crate::util::{api, parse_node_name, RpcBuilder};
 use crate::util::{embedded_node_that_is_not_stopped, exitcode};
 use crate::util::{local_cmd, node_rpc};
@@ -109,6 +114,12 @@ pub struct CreateCommand {
 
     #[command(flatten)]
     pub trust_context_opts: TrustContextOpts,
+
+    #[arg(long, group = "authentication_method", hide = true, value_name = "ENROLLMENT TICKET PATH | ENROLLMENT TICKET", value_parser = parse_enroll_ticket)]
+    pub enroll_ticket: Option<EnrollmentTicket>,
+
+    #[arg(long = "okta", hide = true, group = "authentication_method")]
+    pub okta_enroll: bool,
 }
 
 impl Default for CreateCommand {
@@ -128,6 +139,8 @@ impl Default for CreateCommand {
             authority_identity: None,
             credential: None,
             trust_context_opts: TrustContextOpts::default(),
+            enroll_ticket: None,
+            okta_enroll: false,
         }
     }
 }
@@ -205,7 +218,7 @@ pub(crate) async fn background_mode(
     let send_req = async {
         let tcp = TcpTransport::create(&ctx).await.into_diagnostic()?;
         let mut rpc = RpcBuilder::new(&ctx, &opts, node_name).tcp(&tcp)?.build();
-        spawn_background_node(&opts, cmd).await?;
+        spawn_background_node(&opts, cmd.clone()).await?;
         let is_node_up = is_node_up(&mut rpc, true).await?;
         *is_finished.lock().await = true;
         Ok(is_node_up)
@@ -223,7 +236,8 @@ pub(crate) async fn background_mode(
 
     let (_response, _) = try_join!(send_req, progress_output)?;
 
-    opts.terminal
+    opts.clone()
+        .terminal
         .stdout()
         .plain(
             fmt_ok!(
@@ -238,6 +252,20 @@ pub(crate) async fn background_mode(
                 ),
         )
         .write_line()?;
+
+    if cmd.enroll_ticket.is_some() || cmd.okta_enroll {
+        let enroll_command = EnrollCommand {
+            okta: cmd.okta_enroll,
+            enroll_ticket: cmd.enroll_ticket.clone(),
+            cloud_opts: CloudOpts {
+                identity: cmd.identity.clone(),
+            },
+            trust_opts: cmd.trust_context_opts.clone(),
+            new_trust_context_name: None,
+            force: false,
+        };
+        project_enroll(&ctx, (opts, enroll_command), node_name).await?;
+    }
     Ok(())
 }
 
@@ -258,6 +286,20 @@ async fn run_foreground_node(
     if node_name == "authority" && cmd.launch_config.is_some() {
         return start_authority_node(ctx, (opts, cmd)).await;
     };
+
+    if cmd.enroll_ticket.is_some() || cmd.okta_enroll {
+        let enroll_command = EnrollCommand {
+            okta: cmd.okta_enroll,
+            enroll_ticket: cmd.enroll_ticket.clone(),
+            cloud_opts: CloudOpts {
+                identity: cmd.identity.clone(),
+            },
+            trust_opts: cmd.trust_context_opts.clone(),
+            new_trust_context_name: None,
+            force: false,
+        };
+        project_enroll(&ctx, (opts.clone(), enroll_command), &node_name).await?;
+    }
 
     // This node was initially created as a foreground node
     // and there is no existing state for it yet.

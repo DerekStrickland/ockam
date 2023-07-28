@@ -1,7 +1,7 @@
 mod addon;
 mod create;
 mod delete;
-mod enroll;
+pub(crate) mod enroll;
 mod info;
 mod list;
 mod show;
@@ -16,13 +16,13 @@ pub use crate::credential::get::GetCommand;
 pub use addon::AddonCommand;
 pub use create::CreateCommand;
 pub use delete::DeleteCommand;
+pub use enroll::EnrollCommand;
 pub use info::InfoCommand;
 pub use list::ListCommand;
 pub use show::ShowCommand;
 pub use ticket::TicketCommand;
 
 use crate::docs;
-use crate::project::enroll::EnrollCommand;
 use crate::CommandGlobalOpts;
 
 const LONG_ABOUT: &str = include_str!("./static/long_about.txt");

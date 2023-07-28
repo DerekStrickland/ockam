@@ -6,6 +6,7 @@ use clap::Args;
 use miette::Context as _;
 use miette::{miette, IntoDiagnostic};
 use ockam::Context;
+pub use parser::ConfigRunner;
 use std::path::PathBuf;
 
 /// Create nodes given a declarative configuration file
