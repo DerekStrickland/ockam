@@ -1,10 +1,11 @@
-use tauri::{CustomMenuItem, SystemTrayMenu};
-use tauri_runtime::menu::SystemTrayMenuItem;
+use tauri::{AppHandle, CustomMenuItem, SystemTrayMenu, SystemTrayMenuItem, Wry};
 
 use crate::app::AppState;
 
-pub const INVITATIONS_SENT_HEADER_MENU_ID: &str = "sent_invitations_header";
-pub const INVITATIONS_RECEIVED_HEADER_MENU_ID: &str = "received_invitations_header";
+pub(crate) const INVITATIONS_SENT_HEADER_MENU_ID: &str = "sent_invitations_header";
+pub(crate) const INVITATIONS_RECEIVED_HEADER_MENU_ID: &str = "received_invitations_header";
+pub(crate) const INVITATIONS_MANAGE_MENU_ID: &str = "manage_invites";
+pub(crate) const INVITATIONS_WINDOW_ID: &str = "share";
 
 pub(crate) async fn build_invitations_section(
     app_state: &AppState,
@@ -23,4 +24,18 @@ pub(crate) async fn build_invitations_section(
             CustomMenuItem::new(INVITATIONS_RECEIVED_HEADER_MENU_ID, "Received Invitations")
                 .disabled(),
         )
+        .add_item(CustomMenuItem::new(
+            INVITATIONS_MANAGE_MENU_ID,
+            "Manage Invitations...",
+        ))
+}
+
+pub(crate) fn on_manage(app: &AppHandle<Wry>) -> tauri::Result<()> {
+    tauri::WindowBuilder::new(
+        app,
+        INVITATIONS_WINDOW_ID,
+        tauri::WindowUrl::App("share".into()),
+    )
+    .build()?;
+    Ok(())
 }

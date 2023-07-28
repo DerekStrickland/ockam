@@ -4,7 +4,7 @@ use tracing::error;
 use crate::app::AppState;
 use crate::enroll::build_enroll_section;
 #[cfg(feature = "invitations")]
-use crate::invitations::build_invitations_section;
+use crate::invitations::{self, build_invitations_section};
 use crate::options::build_options_section;
 use crate::shared_service::build_shared_services_section;
 use crate::{enroll, options, shared_service};
@@ -28,6 +28,8 @@ pub fn process_system_tray_event(app: &AppHandle<Wry>, event: SystemTrayEvent) {
         let result = match id.as_str() {
             enroll::ENROLL_MENU_ID => enroll::on_enroll(app),
             shared_service::SHARED_SERVICE_CREATE_MENU_ID => shared_service::on_create(app),
+            #[cfg(feature = "invitations")]
+            invitations::INVITATIONS_MANAGE_MENU_ID => invitations::on_manage(app),
             options::RESET_MENU_ID => options::on_reset(app),
             options::QUIT_MENU_ID => options::on_quit(),
             _ => Ok(()),
