@@ -5,6 +5,8 @@ use shared_service::tcp_outlet::tcp_outlet_create;
 mod app;
 mod enroll;
 mod error;
+#[cfg(feature = "invitations")]
+mod invitations;
 mod options;
 mod platform;
 mod shared_service;
