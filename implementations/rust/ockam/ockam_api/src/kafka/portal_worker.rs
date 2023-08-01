@@ -464,6 +464,7 @@ mod test {
     use crate::kafka::inlet_controller::KafkaInletController;
     use crate::kafka::portal_worker::KafkaPortalWorker;
     use crate::kafka::secure_channel_map::KafkaSecureChannelControllerImpl;
+    use crate::kafka::ConsumerNodeAddr;
     use crate::port_range::PortRange;
     use ockam::MessageReceiveOptions;
 
@@ -742,7 +743,7 @@ mod test {
         let secure_channels = secure_channels();
         let secure_channel_controller = KafkaSecureChannelControllerImpl::new(
             secure_channels,
-            MultiAddr::default(),
+            ConsumerNodeAddr::Relay(MultiAddr::default()),
             "test_trust_context_id".to_string(),
         )
         .into_trait();
@@ -797,7 +798,7 @@ mod test {
 
         let secure_channel_controller = KafkaSecureChannelControllerImpl::new(
             handler.secure_channels.clone(),
-            MultiAddr::default(),
+            ConsumerNodeAddr::Relay(MultiAddr::default()),
             "test_trust_context_id".to_string(),
         )
         .into_trait();
